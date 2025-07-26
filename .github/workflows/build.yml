@@ -1,3 +1,4 @@
+
 name: Build ZMK Firmware (3-part Split)
 
 on: [push, pull_request, workflow_dispatch]
@@ -66,12 +67,74 @@ jobs:
   build-central:
     needs: setup
     runs-on: ubuntu-latest
-    steps: [...Tương tự build-left, thay shield=corne_central...]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: zmk
+
+      - name: Setup Zephyr
+        run: |
+          source ~/zmk-venv/bin/activate
+          cd zmk
+          west init -l app
+          west update
+          west zephyr-export
+          pip install -r zephyr/scripts/requirements.txt
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get install -y --no-install-recommends git cmake ninja-build gcc g++ \
+          device-tree-compiler dfu-util libncurses-dev
+
+      - name: Build Central
+        run: |
+          source ~/zmk-venv/bin/activate
+          cd zmk
+          west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_central -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
+          mkdir -p ../firmware
+          cp build/zephyr/zmk.uf2 ../firmware/central.uf2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: central-firmware
+          path: firmware/central.uf2
 
   build-right:
     needs: setup
     runs-on: ubuntu-latest
-    steps: [...Tương tự build-left, thay shield=corne_right...]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: zmk
+
+      - name: Setup Zephyr
+        run: |
+          source ~/zmk-venv/bin/activate
+          cd zmk
+          west init -l app
+          west update
+          west zephyr-export
+          pip install -r zephyr/scripts/requirements.txt
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get install -y --no-install-recommends git cmake ninja-build gcc g++ \
+          device-tree-compiler dfu-util libncurses-dev
+
+      - name: Build Right
+        run: |
+          source ~/zmk-venv/bin/activate
+          cd zmk
+          west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_right -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
+          mkdir -p ../firmware
+          cp build/zephyr/zmk.uf2 ../firmware/right.uf2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: right-firmware
+          path: firmware/right.uf2
 
   combine:
     needs: [build-left, build-central, build-right]
