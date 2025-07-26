@@ -6,11 +6,12 @@ jobs:
   build:
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
     with:
-      board: nice_nano_v2
-      shield: |
-        corne_central
-        corne_left
-        corne_right
+      board1: nice_nano_v2
+      shield1: corne_central
+      board2: nice_nano_v2
+      shield2: corne_left
+      board3: nice_nano_v2
+      shield3: corne_right
       keymap: default
     secrets: inherit
 
@@ -18,24 +19,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: zmk-*.uf2
+          merge-multiple: true
 
-      - name: Rename and organize artifacts
+      - name: Organize firmware
         run: |
           mkdir -p firmware
-          # Central
-          cp artifacts/corne_central-nice_nano_v2-zmk.uf2 firmware/central.uf2
-          # Left
-          cp artifacts/corne_left-nice_nano_v2-zmk.uf2 firmware/left.uf2
-          # Right
-          cp artifacts/corne_right-nice_nano_v2-zmk.uf2 firmware/right.uf2
+          mv artifacts/corne_central-nice_nano_v2-zmk.uf2 firmware/central.uf2
+          mv artifacts/corne_left-nice_nano_v2-zmk.uf2 firmware/left.uf2
+          mv artifacts/corne_right-nice_nano_v2-zmk.uf2 firmware/right.uf2
+          ls -la firmware/
 
-      - name: Upload combined firmware
+      - name: Upload final artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: zmk-firmware-bundle
-          path: firmware/
-          compression-level: 0
+          name: zmk-firmware
+          path: firmware/*
+          if-no-files-found: error
