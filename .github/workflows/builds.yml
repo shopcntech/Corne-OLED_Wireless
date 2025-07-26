@@ -1,0 +1,53 @@
+name: Build ZMK Firmware (Central + 2 Peripherals)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4  # <-- Cập nhật lên v4
+        with:
+          submodules: recursive
+          fetch-depth: 0  # Tải toàn bộ history để đảm bảo versioning chính xác
+
+      - name: Setup ZMK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y west
+          west init -l config
+          west update
+          west zephyr-export
+
+      # Build Central (không phím, chỉ nhận dữ liệu)
+      - name: Build Central
+        run: |
+          west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_central -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
+          mv build/zephyr/zmk.uf2 central.uf2
+
+      # Build Left (Peripheral)
+      - name: Build Left
+        run: |
+          west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_left -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
+          mv build/zephyr/zmk.uf2 left.uf2
+
+      # Build Right (Peripheral)
+      - name: Build Right
+        run: |
+          west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_right -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
+          mv build/zephyr/zmk.uf2 right.uf2
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4  # <-- Cập nhật lên v4
+        with:
+          name: zmk-firmware
+          path: |
+            central.uf2
+            left.uf2
+            right.uf2
+          compression-level: 0  # Tắt nén để tải nhanh hơn
+          if-no-files-found: error  # Báo lỗi nếu không tìm thấy file
