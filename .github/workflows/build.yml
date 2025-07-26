@@ -3,18 +3,43 @@ name: Build ZMK Firmware (3-part Split)
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  build-left:
+  setup-environment:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends git cmake ninja-build gcc g++ \
+          python3-dev python3-pip python3-setuptools python3-wheel dfu-util device-tree-compiler
+          pip3 install --user west
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+  build-left:
+    needs: setup-environment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: zmk
+          
+      - name: Setup Zephyr Environment
+        run: |
+          cd zmk
+          west init -l app
+          west update
+          west zephyr-export
+          
       - name: Build Left
         run: |
+          cd zmk
           west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_left -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
-          mkdir -p firmware
-          cp build/zephyr/zmk.uf2 firmware/left.uf2
+          mkdir -p ../firmware
+          cp build/zephyr/zmk.uf2 ../firmware/left.uf2
 
       - uses: actions/upload-artifact@v4
         with:
@@ -22,17 +47,27 @@ jobs:
           path: firmware/left.uf2
 
   build-central:
+    needs: setup-environment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          path: zmk
+          
+      - name: Setup Zephyr Environment
+        run: |
+          cd zmk
+          west init -l app
+          west update
+          west zephyr-export
           
       - name: Build Central
         run: |
+          cd zmk
           west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_central -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
-          mkdir -p firmware
-          cp build/zephyr/zmk.uf2 firmware/central.uf2
+          mkdir -p ../firmware
+          cp build/zephyr/zmk.uf2 ../firmware/central.uf2
 
       - uses: actions/upload-artifact@v4
         with:
@@ -40,17 +75,27 @@ jobs:
           path: firmware/central.uf2
 
   build-right:
+    needs: setup-environment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          path: zmk
+          
+      - name: Setup Zephyr Environment
+        run: |
+          cd zmk
+          west init -l app
+          west update
+          west zephyr-export
           
       - name: Build Right
         run: |
+          cd zmk
           west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_right -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
-          mkdir -p firmware
-          cp build/zephyr/zmk.uf2 firmware/right.uf2
+          mkdir -p ../firmware
+          cp build/zephyr/zmk.uf2 ../firmware/right.uf2
 
       - uses: actions/upload-artifact@v4
         with:
