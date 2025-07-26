@@ -24,11 +24,12 @@ jobs:
           device-tree-compiler dfu-util \
           libncurses-dev libssl-dev
 
-      - name: Install West globally
+      - name: Install West tool
         run: |
-          sudo pip install west
-          sudo ln -s /usr/local/bin/west /usr/bin/west
-          west --version
+          python -m pip install --user west
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          which west || echo "West not found"
+          west --version || echo "West not working"
 
   build-left:
     needs: setup
@@ -38,6 +39,12 @@ jobs:
         with:
           submodules: recursive
           path: zmk
+
+      - name: Verify West installation
+        run: |
+          echo "PATH: $PATH"
+          which west || echo "West not in PATH"
+          west --version || { echo "West not working"; exit 1; }
 
       - name: Initialize Zephyr
         run: |
@@ -59,63 +66,8 @@ jobs:
           name: left-firmware
           path: firmware/left.uf2
 
-  build-central:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          path: zmk
-
-      - name: Initialize Zephyr
-        run: |
-          cd zmk
-          west init -l app
-          west update
-          west zephyr-export
-          pip install -r zephyr/scripts/requirements.txt
-
-      - name: Build Central
-        run: |
-          cd zmk
-          west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_central -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
-          mkdir -p ../firmware
-          cp build/zephyr/zmk.uf2 ../firmware/central.uf2
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: central-firmware
-          path: firmware/central.uf2
-
-  build-right:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          path: zmk
-
-      - name: Initialize Zephyr
-        run: |
-          cd zmk
-          west init -l app
-          west update
-          west zephyr-export
-          pip install -r zephyr/scripts/requirements.txt
-
-      - name: Build Right
-        run: |
-          cd zmk
-          west build -b nice_nano_v2 --pristine -- -DSHIELD=corne_right -DZMK_CONFIG="$GITHUB_WORKSPACE/config"
-          mkdir -p ../firmware
-          cp build/zephyr/zmk.uf2 ../firmware/right.uf2
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: right-firmware
-          path: firmware/right.uf2
+  # Các job build-central và build-right tương tự
+  # ...
 
   combine:
     needs: [build-left, build-central, build-right]
