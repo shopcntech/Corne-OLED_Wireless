@@ -4,17 +4,33 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    uses: zmkfirmware/zmk/.github/workflows/build.yml@main
     with:
-      boards: |
-        nice_nano_v2:corne_central
-        nice_nano_v2:corne_left
-        nice_nano_v2:corne_right
+      board: nice_nano_v2
+      shield: corne_left
       keymap: default
     secrets: inherit
 
-  organize-firmware:
+  build-central:
     needs: build
+    uses: zmkfirmware/zmk/.github/workflows/build.yml@main
+    with:
+      board: nice_nano_v2
+      shield: corne_central
+      keymap: default
+    secrets: inherit
+
+  build-right:
+    needs: build
+    uses: zmkfirmware/zmk/.github/workflows/build.yml@main
+    with:
+      board: nice_nano_v2
+      shield: corne_right
+      keymap: default
+    secrets: inherit
+
+  combine-artifacts:
+    needs: [build, build-central, build-right]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -22,18 +38,16 @@ jobs:
         with:
           path: artifacts
           
-      - name: Rename and organize
+      - name: Organize firmware
         run: |
           mkdir -p firmware
-          find artifacts -name "*.uf2" -exec cp {} firmware \;
-          cd firmware
-          mv corne_central-nice_nano_v2-zmk.uf2 central.uf2
-          mv corne_left-nice_nano_v2-zmk.uf2 left.uf2
-          mv corne_right-nice_nano_v2-zmk.uf2 right.uf2
-          ls -lh
+          cp artifacts/corne_left*/zmk.uf2 firmware/left.uf2
+          cp artifacts/corne_central*/zmk.uf2 firmware/central.uf2
+          cp artifacts/corne_right*/zmk.uf2 firmware/right.uf2
+          ls -lh firmware/
 
-      - name: Upload final artifacts
+      - name: Upload final bundle
         uses: actions/upload-artifact@v4
         with:
-          name: zmk-firmware-bundle
+          name: zmk-firmware
           path: firmware/*.uf2
